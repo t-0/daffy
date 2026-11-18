@@ -1,0 +1,17 @@
+[package]
+name = "daffy"
+version = "1.0.0"
+edition = "2024"
+[dependencies]
+anyhow = "1.0.104"
+libc = "0.2"
+miniz_oxide = "0.8"
+ratatui = "0.30.2"
+rodio = { version = "0.23.0", default-features = false, features = ["playback"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+# Frame encoding and playback are real-time work even in a debug build.
+[profile.dev]
+opt-level = 1
+[profile.dev.package."*"]
+opt-level = 3
