@@ -7,12 +7,14 @@ pub struct Caps {
     pub kitty: bool,
     /// Lists sixel support among its device attributes.
     pub sixel: bool,
-    /// Pixel size of a cell (width, height).
+    /// Pixel size of a cell (width, height), in screen pixels.
     pub cell: Option<(u16, u16)>,
 }
-/// Cell size in pixels, Kitty graphics probe, then primary device
-/// attributes, which every terminal answers, so its reply marks the end.
-const QUERY: &[u8] = b"\x1b[16t\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\\x1b[c";
+/// Cell size in pixels, iTerm2's own cell size report, Kitty graphics
+/// probe, then primary device attributes, which every terminal answers, so
+/// its reply marks the end.
+const QUERY: &[u8] =
+    b"\x1b[16t\x1b]1337;ReportCellSize\x07\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\\x1b[c";
 pub fn parse_replies(buf: &[u8]) -> (Caps, bool) {
     let s = String::from_utf8_lossy(buf);
     let mut caps = Caps::default();
@@ -31,6 +33,20 @@ pub fn parse_replies(buf: &[u8]) -> (Caps, bool) {
             ) && w > 0
                 && h > 0
             {
+                caps.cell = Some((w, h));
+            }
+        }
+    }
+    // OSC 1337 ; ReportCellSize = height ; width ; scale: iTerm2 answers
+    // CSI 16 t in points, but sixel pixels are screen pixels, which on a
+    // Retina display are twice as many.
+    if let Some((_, rest)) = s.split_once("\x1b]1337;ReportCellSize=") {
+        let end = rest.find(['\x07', '\x1b']).unwrap_or(rest.len());
+        let v: Vec<f32> = rest[..end].split(';').filter_map(|v| v.parse().ok()).collect();
+        if let [h, w, ref more @ ..] = v[..] {
+            let scale = more.first().copied().unwrap_or(1.0);
+            let (w, h) = ((w * scale).round() as u16, (h * scale).round() as u16);
+            if w > 0 && h > 0 {
                 caps.cell = Some((w, h));
             }
         }

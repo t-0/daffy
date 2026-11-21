@@ -179,6 +179,17 @@ struct ImageState {
     /// The frame the terminal was last given, if it went out.
     sent_frame: Option<u64>,
 }
+impl ImageState {
+    /// Whether the last picture is still on screen somewhere `now` does
+    /// not cover exactly: it moved, changed size or went away.
+    fn stale(&self, now: Option<Placement>) -> bool {
+        match (self.last, now) {
+            (Some(l), Some(p)) => (l.x, l.y, l.cols, l.rows) != (p.x, p.y, p.cols, p.rows),
+            (Some(_), None) => true,
+            (None, _) => false,
+        }
+    }
+}
 /// Keys are read in bursts; a terminal reply (APC, OSC or DCS: `ESC _`,
 /// `ESC ]`, `ESC P` ... `ESC \\`) would otherwise arrive as Alt+_ followed by
 /// its text as ordinary keystrokes.
@@ -223,18 +234,24 @@ fn run(terminal: &mut Term, output: &Output, mut app: App) -> Result<()> {
             image.sent_frame = None;
         }
         let repaint = last_repaint.elapsed() >= FULL_REPAINT || std::mem::take(&mut app.force_repaint);
-        let mut snapshot = None;
-        terminal.draw(|f| {
-            ui::draw(f, &mut app);
-            if repaint {
-                snapshot = Some(f.buffer_mut().clone());
-            }
-        })?;
+        let drawn = terminal.draw(|f| ui::draw(f, &mut app))?;
+        let stale = image.stale(app.image_out);
+        let snapshot = (repaint || stale).then(|| drawn.buffer.clone());
         if let Some(buf) = snapshot {
+            let backend = terminal.backend_mut();
+            if stale {
+                // Some terminals (Konsole, WezTerm, kitty placements) keep a
+                // picture on a layer of its own that spaces do not erase, so
+                // one that moved or went away is deleted and the display
+                // erased before the cells go back, all in one write.
+                if let Some(seq) = app.renderer.clear_sequence() {
+                    std::io::Write::write_all(backend, seq)?;
+                }
+                execute!(backend, Clear(ClearType::All))?;
+            }
             // ratatui only emits cells that changed since the last frame, so
             // stray text in otherwise static areas would survive forever.
             // Rewriting every cell (no clear, so no flicker) paints it out.
-            let backend = terminal.backend_mut();
             backend.draw(buf.content.iter().enumerate().map(|(i, c)| {
                 let (x, y) = buf.pos_of(i);
                 (x, y, c)
@@ -242,7 +259,7 @@ fn run(terminal: &mut Term, output: &Output, mut app: App) -> Result<()> {
             Backend::flush(backend)?;
             last_repaint = Instant::now();
         }
-        flush_image(output, &mut app, &mut image, repaint);
+        flush_image(output, &mut app, &mut image, repaint || stale);
         let tick = if app.playing_active() {
             Duration::from_millis(33)
         } else {
@@ -291,36 +308,22 @@ fn run(terminal: &mut Term, output: &Output, mut app: App) -> Result<()> {
     }
 }
 /// Hands the picture for this frame to the writer thread, after the cells,
-/// when it is new or the screen was rewritten; clears up when the picture
-/// goes away. A frame the terminal has no room for yet is simply skipped.
+/// when it is new or the screen was rewritten (which the main loop does
+/// when the picture moves or goes away). A frame the terminal has no room
+/// for yet is simply skipped.
 fn flush_image(output: &Output, app: &mut App, image: &mut ImageState, repainted: bool) {
     let now = app.image_out;
-    match (now, image.last) {
-        (Some(p), last) => {
-            let moved = last
-                .map(|l| (l.x, l.y, l.cols, l.rows) != (p.x, p.y, p.cols, p.rows))
-                .unwrap_or(false);
-            if moved {
-                // Cells the old picture covered are blank spaces that the
-                // diff will not touch: rewrite everything next frame.
-                app.force_repaint = true;
-            }
+    match now {
+        Some(p) => {
             let fresh = image.sent_frame != Some(p.frame_id);
-            if (fresh || moved || repainted)
+            if (fresh || repainted)
                 && let Some(frame) = app.playback.as_ref().and_then(|pb| pb.frame())
             {
                 let sent = output.image(app.renderer, frame.clone(), p.x, p.y, p.cols, p.rows);
                 image.sent_frame = sent.then_some(p.frame_id);
             }
         }
-        (None, Some(_)) => {
-            if let Some(seq) = app.renderer.clear_sequence() {
-                output.raw(seq.to_vec());
-            }
-            app.force_repaint = true;
-            image.sent_frame = None;
-        }
-        (None, None) => {}
+        None => image.sent_frame = None,
     }
     image.last = now;
 }

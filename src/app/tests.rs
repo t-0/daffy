@@ -497,13 +497,27 @@ fn renderer_cycles_through_every_option_and_is_remembered() {
     let names: Vec<String> = app.renderer_options().into_iter().map(|(n, _)| n).collect();
     assert_eq!(
         names,
-        ["auto", "kitty", "iterm2", "blocks", "blocks256", "ascii", "ascii256"],
+        [
+            "auto",
+            "kitty",
+            "iterm2",
+            "blocks",
+            "blocks256",
+            "quads",
+            "quads256",
+            "sextants",
+            "sextants256",
+            "mosaic",
+            "mosaic256",
+            "ascii",
+            "ascii256"
+        ],
         "no sixel without a known cell size"
     );
     app.cycle_renderer();
     assert_eq!(app.renderer.protocol, Protocol::Kitty);
     assert!(app.renderer_was.is_some(), "the old picture needs clearing");
-    for _ in 0..4 {
+    for _ in 0..10 {
         app.cycle_renderer();
     }
     assert_eq!((app.renderer.protocol, app.renderer.truecolor), (Protocol::Ascii, true));

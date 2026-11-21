@@ -113,13 +113,19 @@ const KNOWN_KEYS: [&str; 6] = [
     "video.renderer",
     "ffmpeg.dir",
 ];
-pub const RENDERERS: [&str; 8] = [
+pub const RENDERERS: [&str; 14] = [
     "auto",
     "kitty",
     "iterm2",
     "sixel",
     "blocks",
     "blocks256",
+    "quads",
+    "quads256",
+    "sextants",
+    "sextants256",
+    "mosaic",
+    "mosaic256",
     "ascii",
     "ascii256",
 ];
@@ -194,8 +200,10 @@ pub fn load() -> Result<Config> {
 video.home = ~/Movies\n\
 \n\
 # How video frames are drawn: auto (detect what the terminal can do),\n\
-# kitty, iterm2, sixel, blocks (half-block cells), ascii (coloured text),\n\
-# or blocks256 / ascii256 for terminals with 256 colours. The r key\n\
+# kitty, iterm2, sixel, blocks (half-block cells), quads (quarter-block\n\
+# cells), sextants (2×3 block cells), mosaic (block, wedge and eighth\n\
+# shapes), ascii (coloured text), or the same with 256 on the end for\n\
+# terminals with 256 colours. The r key\n\
 # cycles through them while running.\n\
 #video.renderer = auto\n\
 \n\

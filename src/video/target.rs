@@ -5,6 +5,9 @@ pub enum Kind {
     Pixels,
     /// Half a cell: a cell is one pixel wide and two tall.
     HalfBlocks,
+    /// A cell is a grid of this many pixels across and down, drawn as one
+    /// character whose shape splits them into two colours.
+    Grid(u32, u32),
     /// A whole cell: one character per pixel.
     Cells,
 }
@@ -61,6 +64,13 @@ impl Target {
                     .clamp(2, (self.rows.max(1) as u32) * 2);
                 (w, even(h))
             }
+            Kind::Grid(gw, gh) => {
+                let w = ((pw as f64 * gw as f64 / cw as f64).round() as u32)
+                    .clamp(gw, (self.cols.max(1) as u32) * gw);
+                let h = ((ph as f64 * gh as f64 / ch as f64).round() as u32)
+                    .clamp(gh, (self.rows.max(1) as u32) * gh);
+                (w / gw * gw, h / gh * gh)
+            }
             Kind::Cells => {
                 let w = ((pw as f64 / cw as f64).round() as u32).clamp(1, self.cols.max(1) as u32);
                 let h = ((ph as f64 / ch as f64).round() as u32).clamp(1, self.rows.max(1) as u32);
@@ -84,6 +94,10 @@ impl Target {
             Kind::HalfBlocks => {
                 let (w, h) = self.frame_size(vw, vh);
                 ((w as u16).min(self.cols), (h.div_ceil(2) as u16).min(self.rows))
+            }
+            Kind::Grid(gw, gh) => {
+                let (w, h) = self.frame_size(vw, vh);
+                (((w / gw) as u16).min(self.cols), ((h / gh) as u16).min(self.rows))
             }
             Kind::Cells => {
                 let (w, h) = self.frame_size(vw, vh);

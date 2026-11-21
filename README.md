@@ -32,9 +32,12 @@ How frames are drawn is detected on start by asking the terminal (its cell size 
 | `iterm2` | iTerm2, VS Code, WezTerm, mintty, Tabby, Rio | iTerm2 inline images (JPEG), up to 960 px wide at 24 fps |
 | `sixel` | xterm (with sixel), foot, mlterm, Windows Terminal | sixel, 252-colour ordered-dithered palette, up to 800 px wide at 15 fps |
 | `blocks` | everything else, and inside tmux or screen | one `▀` per cell, two pixels high, 24-bit colour (or `blocks256` for 256-colour terminals such as Terminal.app) |
+| `quads` | by choice | one quadrant character (`▘▝▖▗▌▐▀▄▚▞▙▟▛▜█`) per cell, two pixels each way, the cell's four pixels split into the two colours that fit them best (`quads256` for 256 colours) |
+| `sextants` | by choice | the same with sextant characters (U+1FB00), two pixels across and three down (`sextants256`) |
+| `mosaic` | by choice | each cell sampled 8×8 and matched against eighth blocks (`▁▂▃▄▅▆▇`, `▏▎▍▌▋▊▉`), quadrants, sextants and diagonal wedges (U+1FB3C), drawn in the two colours that fit best: the smoothest edges text can give (`mosaic256`) |
 | `ascii` | by choice | one character per cell, picked by brightness from a 70-step ramp, in the pixel's colour (`ascii256` for 256 colours) |
 
-The header shows which one is in use. Press `r` to cycle through all of them while something plays (the detected one, then kitty, iterm2, sixel, blocks, blocks256, ascii, ascii256); the choice is remembered, and cycling back to the detected one forgets it. `daffy --detect` prints what the terminal answered and what was chosen, which is the place to start if the picture is not what you expected. Set `video.renderer` to force one from the config; `sixel` needs a terminal that reports its cell size. Inside tmux the graphics protocols need passthrough configured, so daffy uses blocks there.
+The header shows which one is in use. Press `r` to cycle through all of them while something plays (the detected one, then kitty, iterm2, sixel, blocks, blocks256, quads, quads256, sextants, sextants256, mosaic, mosaic256, ascii, ascii256); the choice is remembered, and cycling back to the detected one forgets it. `daffy --detect` prints what the terminal answered and what was chosen, which is the place to start if the picture is not what you expected. Set `video.renderer` to force one from the config; `sixel` needs a terminal that reports its cell size. Inside tmux the graphics protocols need passthrough configured, so daffy uses blocks there.
 
 Frames are decoded at the size they will be shown, encoded on a separate thread, and a frame is skipped whenever the terminal is still taking the previous one, so a slow terminal lowers the frame rate rather than stalling playback. Press `x` to give the picture the whole window; the decoder is restarted at the new size (and after a resize) once the size has settled.
 
@@ -63,7 +66,7 @@ Frames are decoded at the size they will be shown, encoded on a separate thread,
 | `←` / `→` (or `,` / `.`) | Rewind / fast-forward 10 seconds |
 | `[` / `]` | Rewind / fast-forward 1 minute |
 | `x` | Expand: the picture fills the window, with only the progress bar under it; `x` again brings the list back. Remembered across restarts |
-| `r` | Cycle the renderer: detected, kitty, iterm2, sixel, blocks, blocks256, ascii, ascii256 (see The picture above). Remembered across restarts |
+| `r` | Cycle the renderer: detected, kitty, iterm2, sixel, blocks, blocks256, quads, quads256, sextants, sextants256, mosaic, mosaic256, ascii, ascii256 (see The picture above). Remembered across restarts |
 | `=` (or `+`) / `-` | Playback speed +1% / −1% (range 50% to 200%) |
 | `0` | Reset speed to 100% |
 | `e` | Equaliser & stereo dialog: preamp, auto-normalise, off, 3-band or 7-band EQ, loudness, mono / stereo width |
@@ -106,3 +109,10 @@ They push 200k random operations through the app state against a 3k-video librar
 ### v1.0.0
 
 - initial version
+
+### v1.0.1
+
+- linux full-screen residual image fix
+- sixel size reporting on MacOS
+- added quad, sextant, and mosaic rendering
+- fixed speed controls

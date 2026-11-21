@@ -15,6 +15,14 @@ pub use query::{Caps, query_terminal};
 pub enum Protocol {
     /// Two pixels per cell with `▀`, coloured foreground and background.
     Blocks,
+    /// Four pixels per cell with the quadrant block characters, the two
+    /// colours that fit them best as foreground and background.
+    Quads,
+    /// Six pixels per cell (2×3) with the sextant characters, likewise.
+    Sextants,
+    /// 8×8 pixels per cell matched against a set of block, eighth-block,
+    /// quadrant, sextant and diagonal wedge shapes, likewise.
+    Mosaic,
     /// One character per cell, chosen by brightness, in the pixel's colour.
     Ascii,
     Kitty,
@@ -22,16 +30,22 @@ pub enum Protocol {
     Sixel,
 }
 impl Protocol {
-    pub const ALL: [Protocol; 5] = [
+    pub const ALL: [Protocol; 8] = [
         Protocol::Kitty,
         Protocol::Iterm2,
         Protocol::Sixel,
         Protocol::Blocks,
+        Protocol::Quads,
+        Protocol::Sextants,
+        Protocol::Mosaic,
         Protocol::Ascii,
     ];
     pub fn name(self) -> &'static str {
         match self {
             Protocol::Blocks => "blocks",
+            Protocol::Quads => "quads",
+            Protocol::Sextants => "sextants",
+            Protocol::Mosaic => "mosaic",
             Protocol::Ascii => "ascii",
             Protocol::Kitty => "kitty",
             Protocol::Iterm2 => "iterm2",
@@ -39,7 +53,10 @@ impl Protocol {
         }
     }
     pub fn pixels(self) -> bool {
-        !matches!(self, Protocol::Blocks | Protocol::Ascii)
+        !matches!(
+            self,
+            Protocol::Blocks | Protocol::Quads | Protocol::Sextants | Protocol::Mosaic | Protocol::Ascii
+        )
     }
     /// Draws into the cell buffer rather than through an image protocol,
     /// so the colour depth matters.
@@ -95,11 +112,11 @@ impl Renderer {
     }
     pub fn target(&self, cols: u16, rows: u16) -> Target {
         let (max_width, max_fps) = match self.protocol {
-            Protocol::Blocks | Protocol::Ascii => (u32::MAX, 30),
             Protocol::Kitty => (1280, 24),
             Protocol::Iterm2 => (800, 24),
             // Sixels are real pixels: a cap would shrink the picture.
             Protocol::Sixel => (u32::MAX, 15),
+            _ => (u32::MAX, 30),
         };
         Target {
             cols,
@@ -111,6 +128,9 @@ impl Renderer {
             },
             kind: match self.protocol {
                 Protocol::Blocks => Kind::HalfBlocks,
+                Protocol::Quads => Kind::Grid(2, 2),
+                Protocol::Sextants => Kind::Grid(2, 3),
+                Protocol::Mosaic => Kind::Grid(8, 8),
                 Protocol::Ascii => Kind::Cells,
                 _ => Kind::Pixels,
             },
@@ -124,10 +144,10 @@ impl Renderer {
     pub fn encode(&self, frame: &Frame, x: u16, y: u16, cols: u16, rows: u16, seq: u64) -> Vec<u8> {
         let mut out = format!("\x1b[{};{}H", y + 1, x + 1).into_bytes();
         match self.protocol {
-            Protocol::Blocks | Protocol::Ascii => {}
             Protocol::Kitty => kitty::encode(&mut out, frame, cols, rows, kitty_id(seq)),
             Protocol::Iterm2 => iterm2::encode(&mut out, frame, cols, rows),
             Protocol::Sixel => sixel::encode(&mut out, frame),
+            _ => {}
         }
         out
     }
@@ -211,6 +231,12 @@ pub fn detect(forced: Option<&str>, env: &Env, caps: &Caps) -> (Renderer, Option
         return match f {
             "blocks" => (make(Protocol::Blocks, true), None),
             "blocks256" => (make(Protocol::Blocks, false), None),
+            "quads" => (make(Protocol::Quads, true), None),
+            "quads256" => (make(Protocol::Quads, false), None),
+            "sextants" => (make(Protocol::Sextants, true), None),
+            "sextants256" => (make(Protocol::Sextants, false), None),
+            "mosaic" => (make(Protocol::Mosaic, true), None),
+            "mosaic256" => (make(Protocol::Mosaic, false), None),
             "ascii" => (make(Protocol::Ascii, true), None),
             "ascii256" => (make(Protocol::Ascii, false), None),
             "kitty" => (make(Protocol::Kitty, truecolor), None),

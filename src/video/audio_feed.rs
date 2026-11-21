@@ -39,7 +39,7 @@ impl Shared {
     pub(super) fn finish(&self) {
         self.eof.store(true, Ordering::SeqCst);
     }
-    fn queued(&self) -> usize {
+    pub(super) fn queued(&self) -> usize {
         self.queue.lock().map(|q| q.len()).unwrap_or(0)
     }
     pub(super) fn underrun_secs(&self) -> f64 {
@@ -130,6 +130,10 @@ pub struct PcmSource {
     pos: usize,
 }
 const CHUNK: usize = 4096;
+/// Samples per span (50 ms). Playback speed works by changing the sample
+/// rate a source reports, and rodio's resampler only looks at the rate at
+/// the start of a span: an endless span would keep the speed it started at.
+const SPAN: usize = (AUDIO_RATE / 20) as usize * AUDIO_CHANNELS as usize;
 impl PcmSource {
     pub(super) fn new(shared: Arc<Shared>) -> Self {
         Self {
@@ -169,7 +173,7 @@ impl Iterator for PcmSource {
 }
 impl Source for PcmSource {
     fn current_span_len(&self) -> Option<usize> {
-        None
+        Some(SPAN)
     }
     fn channels(&self) -> ChannelCount {
         NonZero::new(AUDIO_CHANNELS).unwrap()

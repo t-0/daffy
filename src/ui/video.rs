@@ -1,7 +1,8 @@
-//! The picture: half-block cells drawn straight into the buffer, or a
+//! The picture: text cells drawn straight into the buffer, or a
 //! blank area whose position is left for the main loop to send an image
 //! escape sequence to (Kitty, iTerm2, sixel).
 use super::DIM;
+use super::shapes::{draw_mosaic, draw_quads, draw_sextants};
 use crate::app::{App, Placement};
 use crate::video::term::xterm256;
 use crate::video::{Frame as Picture, Protocol};
@@ -62,6 +63,18 @@ pub(super) fn draw_video(f: &mut Frame, area: Rect, app: &mut App) {
             let truecolor = app.renderer.truecolor;
             draw_blocks(f.buffer_mut(), frame, x, y, cols, rows, truecolor);
         }
+        Protocol::Quads => {
+            let truecolor = app.renderer.truecolor;
+            draw_quads(f.buffer_mut(), frame, x, y, cols, rows, truecolor);
+        }
+        Protocol::Sextants => {
+            let truecolor = app.renderer.truecolor;
+            draw_sextants(f.buffer_mut(), frame, x, y, cols, rows, truecolor);
+        }
+        Protocol::Mosaic => {
+            let truecolor = app.renderer.truecolor;
+            draw_mosaic(f.buffer_mut(), frame, x, y, cols, rows, truecolor);
+        }
         Protocol::Ascii => {
             let truecolor = app.renderer.truecolor;
             draw_ascii(f.buffer_mut(), frame, x, y, cols, rows, truecolor);
@@ -88,7 +101,7 @@ pub(super) fn draw_video(f: &mut Frame, area: Rect, app: &mut App) {
         }
     }
 }
-fn colour(p: (u8, u8, u8), truecolor: bool) -> Color {
+pub(super) fn colour(p: (u8, u8, u8), truecolor: bool) -> Color {
     if truecolor {
         Color::Rgb(p.0, p.1, p.2)
     } else {

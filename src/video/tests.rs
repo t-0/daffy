@@ -3,6 +3,10 @@ use super::clock::Clock;
 use super::term::{self, Caps, Env, Protocol, base64, jpeg, xterm256};
 use super::*;
 use rodio::Source;
+use std::num::NonZero;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering as AtomicOrdering};
+use std::time::Duration;
 fn solid(w: u32, h: u32, rgb: (u8, u8, u8)) -> Frame {
     let mut data = Vec::with_capacity((w * h * 3) as usize);
     for _ in 0..w * h {
@@ -73,6 +77,26 @@ fn pixel_target_fits_cells_and_caps_width() {
         ..t
     };
     assert_eq!(big.frame_size(1920, 1080), (1000, 562));
+    // Quadrants: two pixels each way per cell.
+    let quads = Target {
+        kind: Kind::Grid(2, 2),
+        ..t
+    };
+    assert_eq!(quads.frame_size(1920, 1080), (200, 56));
+    assert_eq!(quads.cells(1920, 1080), (100, 28));
+    // Sextants are three pixels down a cell, mosaic eight each way.
+    let sextants = Target {
+        kind: Kind::Grid(2, 3),
+        ..t
+    };
+    assert_eq!(sextants.frame_size(1920, 1080), (200, 84));
+    assert_eq!(sextants.cells(1920, 1080), (100, 28));
+    let mosaic = Target {
+        kind: Kind::Grid(8, 8),
+        ..t
+    };
+    assert_eq!(mosaic.frame_size(1920, 1080), (800, 224));
+    assert_eq!(mosaic.cells(1920, 1080), (100, 28));
     // ASCII: one pixel per cell, so the frame is the cell count.
     let text = Target {
         kind: Kind::Cells,
@@ -153,6 +177,32 @@ fn pcm_source_plays_silence_on_underrun_and_ends_on_eof() {
     let n = src.by_ref().take_while(|&s| s == 0.1).count();
     assert_eq!(n, 48_000);
     assert_eq!(src.next(), None, "eof after the queue drains");
+}
+#[test]
+fn pcm_source_follows_a_speed_change_mid_stream() {
+    use rodio::source::UniformSourceIterator;
+    let shared = Shared::new();
+    let secs = |s: f64| (s * AUDIO_RATE as f64) as usize * AUDIO_CHANNELS as usize;
+    shared.push(&vec![0.1; secs(10.0)]);
+    let channels = NonZero::new(AUDIO_CHANNELS).unwrap();
+    let rate = NonZero::new(AUDIO_RATE).unwrap();
+    // What rodio's player does: the speed factor handed to the source every
+    // few milliseconds, then conversion to the output rate.
+    let factor = Arc::new(AtomicU32::new(1.0f32.to_bits()));
+    let f = factor.clone();
+    let src = PcmSource::new(shared.clone())
+        .speed(1.0)
+        .periodic_access(Duration::from_millis(5), move |s| {
+            s.set_factor(f32::from_bits(f.load(AtomicOrdering::Relaxed)))
+        });
+    let mut out = UniformSourceIterator::new(src, channels, rate);
+    out.by_ref().take(secs(1.0)).for_each(drop);
+    factor.store(2.0f32.to_bits(), AtomicOrdering::Relaxed);
+    let before = shared.queued();
+    out.by_ref().take(secs(1.0)).for_each(drop);
+    let used = (before - shared.queued()) as f64 / secs(1.0) as f64;
+    // Up to a span plus a chunk late in picking the change up.
+    assert!((1.8..=2.1).contains(&used), "a second at 2x used {used:.2} s of audio");
 }
 #[test]
 fn base64_matches_the_standard() {
@@ -436,6 +486,13 @@ fn terminal_replies_are_parsed() {
         sixel: true,
         cell: Some((10, 20)),
     });
+    // iTerm2 reports CSI 16 t in points; its own report carries the scale.
+    let (caps, _) = term::parse_replies(
+        b"\x1b[6;17;7t\x1b]1337;ReportCellSize=17.0;7.0;2.0\x1b\\\x1b[?62;4c",
+    );
+    assert_eq!(caps.cell, Some((14, 34)));
+    let (caps, _) = term::parse_replies(b"\x1b]1337;ReportCellSize=16;8\x07\x1b[?62c");
+    assert_eq!(caps.cell, Some((8, 16)));
     let (caps, done) = term::parse_replies(b"\x1b[?1;2c");
     assert!(done);
     assert_eq!(caps, Caps::default());

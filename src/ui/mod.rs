@@ -4,6 +4,7 @@ mod header;
 mod list;
 mod now_playing;
 mod search_box;
+mod shapes;
 mod sort_box;
 mod video;
 use crate::app::App;
