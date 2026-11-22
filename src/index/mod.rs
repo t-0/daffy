@@ -98,12 +98,13 @@ fn read_video(path: &Path, mtime: u64, size: u64, ffprobe: Option<&Path>) -> Vid
     }
     v
 }
-/// Every video file under `root`, following symlinks and skipping entries
+/// Every video file under each of `roots`, following symlinks and skipping entries
 /// whose name starts with a dot. A directory reached twice (through a symlink
 /// or a loop) is read once; anything that cannot be read goes in `unreadable`.
-fn walk(root: &Path, files: &mut Vec<PathBuf>, unreadable: &mut Vec<PathBuf>) {
+/// Overlapping roots are fine: the shared directories are read once.
+fn walk(roots: &[PathBuf], files: &mut Vec<PathBuf>, unreadable: &mut Vec<PathBuf>) {
     let mut seen: HashSet<PathBuf> = HashSet::new();
-    let mut stack = vec![root.to_path_buf()];
+    let mut stack: Vec<PathBuf> = roots.iter().rev().cloned().collect();
     while let Some(dir) = stack.pop() {
         match fs::canonicalize(&dir) {
             Ok(real) => {
@@ -196,7 +197,7 @@ fn read_entry(old: &HashMap<PathBuf, Video>, path: &Path, prober: Option<&Path>)
     }
 }
 pub fn build(
-    root: PathBuf,
+    roots: Vec<PathBuf>,
     index_file: PathBuf,
     ffprobe: PathBuf,
     force: bool,
@@ -212,7 +213,7 @@ pub fn build(
         let prober = probe_failed.is_none().then_some(ffprobe.as_path());
         let mut unreadable: Vec<PathBuf> = Vec::new();
         let mut files: Vec<PathBuf> = Vec::new();
-        walk(&root, &mut files, &mut unreadable);
+        walk(&roots, &mut files, &mut unreadable);
         let total = files.len();
         let _ = tx.send(IndexMsg::Progress { done: 0, total });
         // ffprobe is one process per file; several at once keeps a large
@@ -226,7 +227,7 @@ pub fn build(
         let done = std::sync::atomic::AtomicUsize::new(0);
         let mut slots: Vec<Option<Video>> = (0..total).map(|_| None).collect();
         std::thread::scope(|scope| {
-            let (old, files, root, tx, next, done) = (&old, &files, &root, &tx, &next, &done);
+            let (old, files, roots, tx, next, done) = (&old, &files, &roots, &tx, &next, &done);
             let handles: Vec<_> = (0..workers)
                 .map(|_| {
                     scope.spawn(move || {
@@ -235,6 +236,7 @@ pub fn build(
                             let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                             let Some(path) = files.get(i) else { break };
                             let mut video = read_entry(old, path, prober);
+                            let root = crate::config::root_of(roots, path).unwrap_or(&roots[0]);
                             video.locate(root);
                             mine.push((i, video));
                             let n = done.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;

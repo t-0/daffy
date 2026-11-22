@@ -110,7 +110,15 @@ pub(super) fn colour(p: (u8, u8, u8), truecolor: bool) -> Color {
 }
 /// Two pixel rows per cell: the upper half block in the top pixel's colour
 /// on a background of the bottom pixel's colour.
-pub fn draw_blocks(buf: &mut Buffer, frame: &Picture, x: u16, y: u16, cols: u16, rows: u16, truecolor: bool) {
+pub fn draw_blocks(
+    buf: &mut Buffer,
+    frame: &Picture,
+    x: u16,
+    y: u16,
+    cols: u16,
+    rows: u16,
+    truecolor: bool,
+) {
     for cy in 0..rows {
         let py = cy as u32 * 2;
         if py >= frame.height {
@@ -140,7 +148,15 @@ const RAMP: &[u8] = b" .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdb
 /// One character per cell, picked by the pixel's brightness, drawn in the
 /// pixel's colour (lifted a little, since thin glyphs read darker than a
 /// filled cell would).
-pub fn draw_ascii(buf: &mut Buffer, frame: &Picture, x: u16, y: u16, cols: u16, rows: u16, truecolor: bool) {
+pub fn draw_ascii(
+    buf: &mut Buffer,
+    frame: &Picture,
+    x: u16,
+    y: u16,
+    cols: u16,
+    rows: u16,
+    truecolor: bool,
+) {
     for cy in 0..rows {
         let py = cy as u32;
         if py >= frame.height {

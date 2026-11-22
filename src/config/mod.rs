@@ -7,7 +7,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 pub struct Config {
-    pub video_home: PathBuf,
+    /// `video.home`: one folder, or several as `[a, b, ...]`.
+    pub video_homes: Vec<PathBuf>,
     pub index_file: PathBuf,
     /// Command that opens a video for editing (`video.editor`), split into
     /// program and arguments; the file path is appended when it runs.
@@ -81,6 +82,48 @@ fn expand_tilde(raw: &str) -> Result<PathBuf> {
         return Ok(home_dir()?.join(rest));
     }
     Ok(PathBuf::from(raw))
+}
+/// Splits `[a, "b, c", 'd']` into its items, honouring quotes so a path may
+/// contain a comma. Anything not wrapped in brackets is a single item.
+fn split_list(raw: &str) -> Vec<String> {
+    let raw = raw.trim();
+    let Some(inner) = raw.strip_prefix('[').and_then(|r| r.strip_suffix(']')) else {
+        return vec![raw.to_string()];
+    };
+    let mut items = Vec::new();
+    let mut cur = String::new();
+    let mut quoted = false;
+    let mut quote: Option<char> = None;
+    for c in inner.chars() {
+        match (quote, c) {
+            (Some(q), c) if c == q => quote = None,
+            (Some(_), c) => cur.push(c),
+            (None, '"') | (None, '\'') if cur.trim().is_empty() => {
+                cur.clear();
+                quote = Some(c);
+                quoted = true;
+            }
+            (None, ',') => {
+                let item = std::mem::take(&mut cur);
+                let item = if quoted {
+                    item
+                } else {
+                    item.trim().to_string()
+                };
+                if !item.is_empty() {
+                    items.push(item);
+                }
+                quoted = false;
+            }
+            (None, c) if quoted && c.is_whitespace() => {}
+            (None, c) => cur.push(c),
+        }
+    }
+    let item = if quoted { cur } else { cur.trim().to_string() };
+    if !item.is_empty() {
+        items.push(item);
+    }
+    items
 }
 fn parse_kv(text: &str) -> HashMap<String, String> {
     let mut map = HashMap::new();
@@ -184,7 +227,12 @@ fn find_tool(name: &str, dir: Option<&Path>) -> PathBuf {
     {
         return PathBuf::from(exe);
     }
-    for d in ["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin", "/usr/bin"] {
+    for d in [
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/opt/local/bin",
+        "/usr/bin",
+    ] {
         let p = Path::new(d).join(&exe);
         if p.is_file() {
             return p;
@@ -196,7 +244,8 @@ pub fn load() -> Result<Config> {
     let path = config_path()?;
     if !path.exists() {
         let default = "# daffy configuration\n\
-# Folder containing your videos (scanned recursively)\n\
+# Folder containing your videos (scanned recursively), or several:\n\
+#   video.home = [~/Movies, \"/Volumes/Media/Videos\"]\n\
 video.home = ~/Movies\n\
 \n\
 # How video frames are drawn: auto (detect what the terminal can do),\n\
@@ -224,17 +273,24 @@ video.home = ~/Movies\n\
     let text = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
     let map = parse_kv(&text);
     check_keys(&map, &path)?;
-    let video_home = map
-        .get("video.home")
-        .map(|s| expand_tilde(s))
-        .transpose()?
-        .unwrap_or(home_dir()?.join("Movies"));
-    if !video_home.is_dir() {
-        return Err(anyhow!(
-            "video.home `{}` (from {}) is not a directory",
-            video_home.display(),
-            path.display()
-        ));
+    let video_homes = match map.get("video.home") {
+        Some(s) => split_list(s)
+            .iter()
+            .map(|s| expand_tilde(s))
+            .collect::<Result<Vec<_>>>()?,
+        None => vec![home_dir()?.join("Movies")],
+    };
+    if video_homes.is_empty() {
+        return Err(anyhow!("video.home in {} lists no folders", path.display()));
+    }
+    for home in &video_homes {
+        if !home.is_dir() {
+            return Err(anyhow!(
+                "video.home `{}` (from {}) is not a directory",
+                home.display(),
+                path.display()
+            ));
+        }
     }
     let index_file = match map.get("index.file") {
         Some(s) => expand_tilde(s)?,
@@ -267,14 +323,11 @@ video.home = ~/Movies\n\
             RENDERERS.join(", ")
         ));
     }
-    let tool_dir = map
-        .get("ffmpeg.dir")
-        .map(|s| expand_tilde(s))
-        .transpose()?;
+    let tool_dir = map.get("ffmpeg.dir").map(|s| expand_tilde(s)).transpose()?;
     let ffmpeg = find_tool("ffmpeg", tool_dir.as_deref());
     let ffprobe = find_tool("ffprobe", tool_dir.as_deref());
     Ok(Config {
-        video_home,
+        video_homes,
         index_file,
         video_editor,
         video_editor_mode,
@@ -284,14 +337,30 @@ video.home = ~/Movies\n\
     })
 }
 impl Config {
-    /// A video path for display: relative to `video.home` when it lives
-    /// there, otherwise the same as [`display_path`].
+    /// A video path for display: relative to its `video.home` folder when
+    /// it lives in one, otherwise the same as [`display_path`].
     pub fn library_path(&self, p: &Path) -> String {
-        match p.strip_prefix(&self.video_home) {
-            Ok(rest) if !rest.as_os_str().is_empty() => rest.display().to_string(),
+        match root_of(&self.video_homes, p).and_then(|r| p.strip_prefix(r).ok()) {
+            Some(rest) if !rest.as_os_str().is_empty() => rest.display().to_string(),
             _ => display_path(p),
         }
     }
+    /// Every `video.home` folder for display, comma separated.
+    pub fn video_homes_display(&self) -> String {
+        self.video_homes
+            .iter()
+            .map(|p| display_path(p))
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+}
+/// The root `p` lives under; the deepest one when roots are nested.
+pub fn root_of<'a>(roots: &'a [PathBuf], p: &Path) -> Option<&'a Path> {
+    roots
+        .iter()
+        .filter(|r| p.starts_with(r))
+        .max_by_key(|r| r.components().count())
+        .map(PathBuf::as_path)
 }
 pub fn display_path(p: &Path) -> String {
     if let Ok(home) = home_dir()

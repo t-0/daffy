@@ -4,8 +4,8 @@
 pub mod base64;
 mod blocks;
 mod iterm2;
-mod kitty;
 pub mod jpeg;
+mod kitty;
 mod query;
 mod sixel;
 use super::{Frame, Kind, Target};
@@ -55,7 +55,11 @@ impl Protocol {
     pub fn pixels(self) -> bool {
         !matches!(
             self,
-            Protocol::Blocks | Protocol::Quads | Protocol::Sextants | Protocol::Mosaic | Protocol::Ascii
+            Protocol::Blocks
+                | Protocol::Quads
+                | Protocol::Sextants
+                | Protocol::Mosaic
+                | Protocol::Ascii
         )
     }
     /// Draws into the cell buffer rather than through an image protocol,
@@ -200,9 +204,18 @@ impl Env {
         self.kitty_window_id
             || self.term.contains("kitty")
             || self.term.contains("direct")
-            || ["iTerm.app", "vscode", "WezTerm", "ghostty", "Hyper", "Tabby", "rio", "mintty"]
-                .iter()
-                .any(|p| self.program(p))
+            || [
+                "iTerm.app",
+                "vscode",
+                "WezTerm",
+                "ghostty",
+                "Hyper",
+                "Tabby",
+                "rio",
+                "mintty",
+            ]
+            .iter()
+            .any(|p| self.program(p))
     }
     /// Terminals that speak the iTerm2 inline image protocol.
     fn iterm2(&self) -> bool {

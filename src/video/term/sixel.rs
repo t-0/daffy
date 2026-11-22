@@ -12,7 +12,9 @@ fn level(v: u8, levels: u32, dither: i32) -> u32 {
     let step = 255.0 / (levels - 1) as f32;
     // Push the value up to half a step either way before rounding.
     let d = (dither as f32 / 16.0 - 0.5) * step;
-    ((v as f32 + d) / step).round().clamp(0.0, (levels - 1) as f32) as u32
+    ((v as f32 + d) / step)
+        .round()
+        .clamp(0.0, (levels - 1) as f32) as u32
 }
 /// Palette index of a pixel at (`x`, `y`).
 #[inline]
@@ -75,7 +77,11 @@ pub fn encode(out: &mut Vec<u8>, frame: &Frame) {
             }
             out.extend_from_slice(format!("#{c}").as_bytes());
             let line = &bits[c * w..(c + 1) * w];
-            let last = line.iter().rposition(|&b| b != 0).map(|p| p + 1).unwrap_or(0);
+            let last = line
+                .iter()
+                .rposition(|&b| b != 0)
+                .map(|p| p + 1)
+                .unwrap_or(0);
             let mut i = 0;
             while i < last {
                 let ch = line[i];

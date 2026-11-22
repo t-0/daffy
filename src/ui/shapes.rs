@@ -111,7 +111,15 @@ fn draw_grid(
                 }
             }
             let (_, mask, fg) = best;
-            put(buf, x + cx, y + cy, glyph(mask), fg, all.minus(fg), truecolor);
+            put(
+                buf,
+                x + cx,
+                y + cy,
+                glyph(mask),
+                fg,
+                all.minus(fg),
+                truecolor,
+            );
         }
     }
 }
@@ -136,11 +144,29 @@ pub fn sextant(mask: usize) -> char {
     }
 }
 /// Four pixels per cell (2×2), drawn with quadrant characters.
-pub fn draw_quads(buf: &mut Buffer, frame: &Picture, x: u16, y: u16, cols: u16, rows: u16, truecolor: bool) {
-    draw_grid(buf, frame, x, y, cols, rows, truecolor, (2, 2), |m| QUADS[m]);
+pub fn draw_quads(
+    buf: &mut Buffer,
+    frame: &Picture,
+    x: u16,
+    y: u16,
+    cols: u16,
+    rows: u16,
+    truecolor: bool,
+) {
+    draw_grid(buf, frame, x, y, cols, rows, truecolor, (2, 2), |m| {
+        QUADS[m]
+    });
 }
 /// Six pixels per cell (2×3), drawn with sextant characters.
-pub fn draw_sextants(buf: &mut Buffer, frame: &Picture, x: u16, y: u16, cols: u16, rows: u16, truecolor: bool) {
+pub fn draw_sextants(
+    buf: &mut Buffer,
+    frame: &Picture,
+    x: u16,
+    y: u16,
+    cols: u16,
+    rows: u16,
+    truecolor: bool,
+) {
     draw_grid(buf, frame, x, y, cols, rows, truecolor, (2, 3), sextant);
 }
 /// Mosaic cells are sampled 8×8; bit `y * 8 + x` of a shape is that sample.
@@ -171,7 +197,10 @@ pub fn mosaic_shapes() -> &'static [(u64, char)] {
         // Lower k eighths ▁..▇ and left k eighths ▏..▉; their complements
         // are the upper and right ones.
         for k in 1..M {
-            push(area(&|_, sy| sy >= M - k), char::from_u32(0x2580 + k).unwrap());
+            push(
+                area(&|_, sy| sy >= M - k),
+                char::from_u32(0x2580 + k).unwrap(),
+            );
             push(area(&|sx, _| sx < k), char::from_u32(0x2590 - k).unwrap());
         }
         for (m, &ch) in QUADS.iter().enumerate() {
@@ -184,7 +213,10 @@ pub fn mosaic_shapes() -> &'static [(u64, char)] {
             _ => 2,
         };
         for m in 1..63 {
-            push(area(&|sx, sy| m >> (third(sy) * 2 + sx / 4) & 1 == 1), sextant(m));
+            push(
+                area(&|sx, sy| m >> (third(sy) * 2 + sx / 4) & 1 == 1),
+                sextant(m),
+            );
         }
         // Wedges U+1FB3C..U+1FB51: the part of the cell on one side of a
         // line between points of the sextant grid (x in halves, y in
@@ -234,7 +266,15 @@ pub fn mosaic_shapes() -> &'static [(u64, char)] {
 /// split in two by the colour channel that varies most, the shapes closest
 /// to that split are scored on how well their two averages fit, and the
 /// best is drawn.
-pub fn draw_mosaic(buf: &mut Buffer, frame: &Picture, x: u16, y: u16, cols: u16, rows: u16, truecolor: bool) {
+pub fn draw_mosaic(
+    buf: &mut Buffer,
+    frame: &Picture,
+    x: u16,
+    y: u16,
+    cols: u16,
+    rows: u16,
+    truecolor: bool,
+) {
     /// Shapes scored exactly per cell, out of the closest by bit count.
     const CANDIDATES: usize = 4;
     /// A spread this small (out of 255) is drawn as one colour.
@@ -256,7 +296,9 @@ pub fn draw_mosaic(buf: &mut Buffer, frame: &Picture, x: u16, y: u16, cols: u16,
             let mut all = Sum::default();
             p.iter().for_each(|&c| all.add(c));
             let range = |k: usize| {
-                let (lo, hi) = p.iter().fold((255, 0), |(lo, hi), c| (c[k].min(lo), c[k].max(hi)));
+                let (lo, hi) = p
+                    .iter()
+                    .fold((255, 0), |(lo, hi), c| (c[k].min(lo), c[k].max(hi)));
                 (hi - lo, lo + hi)
             };
             let (k, (spread, mid2)) = (0..3)
@@ -341,11 +383,14 @@ mod tests {
         });
         let mut buf = Buffer::empty(Rect::new(0, 0, 3, 1));
         draw_quads(&mut buf, &f, 0, 0, 3, 1, true);
-        assert_eq!(cells(&buf, 3), [
-            ("▘".into(), rgb(RED), rgb(BLUE)),
-            ("▞".into(), rgb(RED), rgb(BLUE)),
-            ("█".into(), rgb(RED), rgb(RED)),
-        ]);
+        assert_eq!(
+            cells(&buf, 3),
+            [
+                ("▘".into(), rgb(RED), rgb(BLUE)),
+                ("▞".into(), rgb(RED), rgb(BLUE)),
+                ("█".into(), rgb(RED), rgb(RED)),
+            ]
+        );
     }
     #[test]
     fn sextant_characters_skip_the_four_older_shapes() {
@@ -366,10 +411,13 @@ mod tests {
         });
         let mut buf = Buffer::empty(Rect::new(0, 0, 2, 1));
         draw_sextants(&mut buf, &f, 0, 0, 2, 1, true);
-        assert_eq!(cells(&buf, 2), [
-            ("\u{1FB02}".into(), rgb(RED), rgb(BLUE)),
-            ("\u{1FB07}".into(), rgb(RED), rgb(BLUE)),
-        ]);
+        assert_eq!(
+            cells(&buf, 2),
+            [
+                ("\u{1FB02}".into(), rgb(RED), rgb(BLUE)),
+                ("\u{1FB07}".into(), rgb(RED), rgb(BLUE)),
+            ]
+        );
     }
     #[test]
     fn mosaic_shapes_are_distinct_and_never_blank_or_full() {

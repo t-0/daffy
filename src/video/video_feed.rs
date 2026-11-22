@@ -39,18 +39,17 @@ impl VideoFeed {
             size.1.max(1)
         );
         let mut child = Command::new(ffmpeg)
-            .args(["-nostdin", "-v", "error", "-ss", &secs_arg(start_secs), "-i"])
+            .args([
+                "-nostdin",
+                "-v",
+                "error",
+                "-ss",
+                &secs_arg(start_secs),
+                "-i",
+            ])
             .arg(path)
             .args([
-                "-an",
-                "-sn",
-                "-dn",
-                "-vf",
-                &filter,
-                "-f",
-                "rawvideo",
-                "-pix_fmt",
-                "rgb24",
+                "-an", "-sn", "-dn", "-vf", &filter, "-f", "rawvideo", "-pix_fmt", "rgb24",
                 "pipe:1",
             ])
             .stdin(Stdio::null())
@@ -113,7 +112,13 @@ impl Drop for VideoFeed {
         let _ = self.child.wait();
     }
 }
-fn reader(mut out: ChildStdout, tx: SyncSender<Arc<Frame>>, size: (u32, u32), start: f64, fps: f64) {
+fn reader(
+    mut out: ChildStdout,
+    tx: SyncSender<Arc<Frame>>,
+    size: (u32, u32),
+    start: f64,
+    fps: f64,
+) {
     let bytes = (size.0 * size.1 * 3) as usize;
     let mut n = 0u64;
     loop {
@@ -123,7 +128,10 @@ fn reader(mut out: ChildStdout, tx: SyncSender<Arc<Frame>>, size: (u32, u32), st
         }
         let pts = start + n as f64 / fps;
         n += 1;
-        if tx.send(Arc::new(Frame::new(size.0, size.1, pts, rgb))).is_err() {
+        if tx
+            .send(Arc::new(Frame::new(size.0, size.1, pts, rgb)))
+            .is_err()
+        {
             return;
         }
     }

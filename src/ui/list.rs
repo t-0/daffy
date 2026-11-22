@@ -1,6 +1,5 @@
 use super::{ACCENT, DIM, fmt_dur};
 use crate::app::{App, Section, SortKey};
-use crate::config::display_path;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
@@ -31,7 +30,7 @@ pub(super) fn draw_list(f: &mut Frame, area: Rect, app: &mut App) {
             format!("probing files {done}/{total}")
         };
         f.render_widget(
-            Paragraph::new(format!("Indexing {}", display_path(&app.config.video_home))),
+            Paragraph::new(format!("Indexing {}", app.config.video_homes_display())),
             rows[0],
         );
         let ratio = if total == 0 {
@@ -73,10 +72,7 @@ pub(super) fn draw_list(f: &mut Frame, area: Rect, app: &mut App) {
                 let marker = if Some(i) == playing { "▶ " } else { "  " };
                 let dur = fmt_dur(t.duration_secs);
                 let (left, right) = match app.sort {
-                    SortKey::Title => (
-                        format!("{marker}{} — {}", t.title, t.folder),
-                        dur,
-                    ),
+                    SortKey::Title => (format!("{marker}{} — {}", t.title, t.folder), dur),
                     SortKey::Newest => (
                         format!("{marker}{}", t.title),
                         format!("{}  {dur}", t.folder),
@@ -133,7 +129,7 @@ pub(super) fn draw_list(f: &mut Frame, area: Rect, app: &mut App) {
         let msg = if app.videos.is_empty() {
             format!(
                 "No video files found under {}\nEdit ~/.daffy to change video.home, or press i to re-index.",
-                display_path(&app.config.video_home)
+                app.config.video_homes_display()
             )
         } else {
             format!(

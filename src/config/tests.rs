@@ -45,3 +45,38 @@ fn tool_lookup_prefers_the_configured_dir() {
     let p = find_tool("ffmpeg", None);
     assert!(p.file_name().is_some());
 }
+#[test]
+fn video_home_lists_split_on_commas_outside_quotes() {
+    assert_eq!(split_list("~/Movies"), ["~/Movies"]);
+    assert_eq!(split_list("/a, b"), ["/a, b"]);
+    assert_eq!(
+        split_list("[~/Movies, /Volumes/X]"),
+        ["~/Movies", "/Volumes/X"]
+    );
+    assert_eq!(
+        split_list(r#"[ "/a, b" , '/c d',/e, ]"#),
+        ["/a, b", "/c d", "/e"]
+    );
+    assert_eq!(split_list("[]"), Vec::<String>::new());
+}
+#[test]
+fn root_of_picks_the_deepest_containing_root() {
+    let roots = [
+        PathBuf::from("/m"),
+        PathBuf::from("/m/tv"),
+        PathBuf::from("/x"),
+    ];
+    assert_eq!(
+        root_of(&roots, Path::new("/m/tv/a.mp4")),
+        Some(Path::new("/m/tv"))
+    );
+    assert_eq!(
+        root_of(&roots, Path::new("/m/a.mp4")),
+        Some(Path::new("/m"))
+    );
+    assert_eq!(
+        root_of(&roots, Path::new("/x/y/a.mp4")),
+        Some(Path::new("/x"))
+    );
+    assert_eq!(root_of(&roots, Path::new("/mm/a.mp4")), None);
+}

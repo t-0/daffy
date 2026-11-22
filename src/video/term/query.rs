@@ -42,7 +42,10 @@ pub fn parse_replies(buf: &[u8]) -> (Caps, bool) {
     // Retina display are twice as many.
     if let Some((_, rest)) = s.split_once("\x1b]1337;ReportCellSize=") {
         let end = rest.find(['\x07', '\x1b']).unwrap_or(rest.len());
-        let v: Vec<f32> = rest[..end].split(';').filter_map(|v| v.parse().ok()).collect();
+        let v: Vec<f32> = rest[..end]
+            .split(';')
+            .filter_map(|v| v.parse().ok())
+            .collect();
         if let [h, w, ref more @ ..] = v[..] {
             let scale = more.first().copied().unwrap_or(1.0);
             let (w, h) = ((w * scale).round() as u16, (h * scale).round() as u16);

@@ -92,8 +92,11 @@ fn main() -> Result<()> {
     // Raw mode is on now, so the terminal's answers arrive as bytes rather
     // than echoed text.
     let caps = video::term::query_terminal();
-    let (renderer, warn) =
-        video::term::detect(config.renderer.as_deref(), &video::term::Env::current(), &caps);
+    let (renderer, warn) = video::term::detect(
+        config.renderer.as_deref(),
+        &video::term::Env::current(),
+        &caps,
+    );
     let mut app = App::new(config, renderer);
     if let Some(w) = warn {
         app.set_status(w);
@@ -126,7 +129,11 @@ fn probe_report(config: &config::Config, path: &std::path::Path) -> Result<Strin
     use std::io::Read;
     let mut out = String::new();
     let meta = std::fs::metadata(path)?;
-    out.push_str(&format!("file: {} ({} bytes)\n", path.display(), meta.len()));
+    out.push_str(&format!(
+        "file: {} ({} bytes)\n",
+        path.display(),
+        meta.len()
+    ));
     out.push_str(&format!(
         "ffprobe: {}\nffmpeg: {}\n",
         config.ffprobe.display(),
@@ -233,7 +240,8 @@ fn run(terminal: &mut Term, output: &Output, mut app: App) -> Result<()> {
             }
             image.sent_frame = None;
         }
-        let repaint = last_repaint.elapsed() >= FULL_REPAINT || std::mem::take(&mut app.force_repaint);
+        let repaint =
+            last_repaint.elapsed() >= FULL_REPAINT || std::mem::take(&mut app.force_repaint);
         let drawn = terminal.draw(|f| ui::draw(f, &mut app))?;
         let stale = image.stale(app.image_out);
         let snapshot = (repaint || stale).then(|| drawn.buffer.clone());
@@ -268,14 +276,20 @@ fn run(terminal: &mut Term, output: &Output, mut app: App) -> Result<()> {
         let mut wait = tick.saturating_sub(last_tick.elapsed());
         while event::poll(wait)? {
             match event::read()? {
-                Event::Key(key) if matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) => {
+                Event::Key(key)
+                    if matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) =>
+                {
                     let swallowed = replies.swallow(&key);
                     if keylog {
                         eprintln!(
                             "key {:?} {:?}{}",
                             key.code,
                             key.modifiers,
-                            if swallowed { " (terminal reply, ignored)" } else { "" }
+                            if swallowed {
+                                " (terminal reply, ignored)"
+                            } else {
+                                ""
+                            }
                         );
                     }
                     if !swallowed {

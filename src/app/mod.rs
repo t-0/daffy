@@ -234,10 +234,10 @@ impl App {
     }
     pub fn start_index(&mut self, force: bool) {
         let (tx, rx) = mpsc::channel();
-        let root = self.config.video_home.clone();
+        let roots = self.config.video_homes.clone();
         let file = self.config.index_file.clone();
         let ffprobe = self.config.ffprobe.clone();
-        thread::spawn(move || index::build(root, file, ffprobe, force, tx));
+        thread::spawn(move || index::build(roots, file, ffprobe, force, tx));
         self.index_rx = Some(rx);
         self.indexing = Some((0, 0));
     }
@@ -552,7 +552,10 @@ impl App {
         (start..end.min(self.video_pos.len())).find(|&i| self.video_pos[i] != usize::MAX)
     }
     fn video_view_pos(&self, idx: usize) -> Option<usize> {
-        self.video_pos.get(idx).copied().filter(|&p| p != usize::MAX)
+        self.video_pos
+            .get(idx)
+            .copied()
+            .filter(|&p| p != usize::MAX)
     }
     fn view_pos(view: &[usize], idx: usize) -> usize {
         match view.binary_search(&idx) {
@@ -567,12 +570,16 @@ impl App {
                 .view_folders
                 .get(self.cursor_folder)
                 .and_then(|&a| self.first_in_view(self.folders[a].start, self.folders[a].end)),
-            Section::Collections => self.view_collections.get(self.cursor_collection).and_then(|&r| {
-                self.first_in_view(
-                    self.collections[r].video_start,
-                    self.collections[r].video_end,
-                )
-            }),
+            Section::Collections => {
+                self.view_collections
+                    .get(self.cursor_collection)
+                    .and_then(|&r| {
+                        self.first_in_view(
+                            self.collections[r].video_start,
+                            self.collections[r].video_end,
+                        )
+                    })
+            }
         }
     }
     pub fn set_status(&mut self, s: impl Into<String>) {
@@ -668,7 +675,9 @@ impl App {
                             .map(|io| io.kind() == std::io::ErrorKind::NotFound)
                             .unwrap_or(false)
                     }) {
-                        msg.push_str(" — ffmpeg was not found; install it or set ffmpeg.dir in ~/.daffy");
+                        msg.push_str(
+                            " — ffmpeg was not found; install it or set ffmpeg.dir in ~/.daffy",
+                        );
                     } else if cfg!(target_os = "macos")
                         && e.chain().any(|c| {
                             c.downcast_ref::<std::io::Error>()
@@ -837,7 +846,10 @@ impl App {
         self.playback.as_ref().map(|p| p.position()).unwrap_or(0.0)
     }
     pub fn is_paused(&self) -> bool {
-        self.playback.as_ref().map(|p| p.is_paused()).unwrap_or(true)
+        self.playback
+            .as_ref()
+            .map(|p| p.is_paused())
+            .unwrap_or(true)
     }
     pub fn adjust_speed(&mut self, delta: i32) {
         self.set_speed_pct(self.speed_pct + delta);

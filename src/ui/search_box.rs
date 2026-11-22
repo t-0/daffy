@@ -48,8 +48,10 @@ pub(super) fn draw_search_box(f: &mut Frame, area: Rect, app: &App) {
         rows[0],
     );
     f.render_widget(
-        Paragraph::new(" title, folder or file name   enter: search   empty: show all   esc: cancel")
-            .style(Style::default().fg(DIM)),
+        Paragraph::new(
+            " title, folder or file name   enter: search   empty: show all   esc: cancel",
+        )
+        .style(Style::default().fg(DIM)),
         rows[2],
     );
 }

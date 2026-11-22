@@ -93,11 +93,17 @@ impl Target {
             }
             Kind::HalfBlocks => {
                 let (w, h) = self.frame_size(vw, vh);
-                ((w as u16).min(self.cols), (h.div_ceil(2) as u16).min(self.rows))
+                (
+                    (w as u16).min(self.cols),
+                    (h.div_ceil(2) as u16).min(self.rows),
+                )
             }
             Kind::Grid(gw, gh) => {
                 let (w, h) = self.frame_size(vw, vh);
-                (((w / gw) as u16).min(self.cols), ((h / gh) as u16).min(self.rows))
+                (
+                    ((w / gw) as u16).min(self.cols),
+                    ((h / gh) as u16).min(self.rows),
+                )
             }
             Kind::Cells => {
                 let (w, h) = self.frame_size(vw, vh);

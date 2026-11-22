@@ -7,7 +7,7 @@ fn temp_config(tag: &str) -> Config {
     let dir = std::env::temp_dir().join(format!("daffy-test-{}-{}", std::process::id(), tag));
     std::fs::create_dir_all(&dir).unwrap();
     Config {
-        video_home: dir.clone(),
+        video_homes: vec![dir.clone()],
         index_file: dir.join("index.json"),
         video_editor: None,
         video_editor_mode: EditorMode::Gui,
@@ -131,20 +131,31 @@ fn reindex_keeps_selection_and_scroll() {
     let path = app.videos[before].path.clone();
     app.section = Section::Folders;
     app.move_cursor(2);
-    let folder = app.folders[app.view_folders[app.cursor_folder]].name.clone();
+    let folder = app.folders[app.view_folders[app.cursor_folder]]
+        .name
+        .clone();
     // Rebuild from a copy with one extra video at the front of the order.
     let mut videos = library();
     videos.push(video("AAA First", "Early", "Opener", 1));
     videos.sort_by_cached_key(|t| t.sort_key());
     app.set_videos(videos);
     assert_eq!(app.videos[app.view_videos[app.cursor_video]].path, path);
-    assert_eq!(app.folders[app.view_folders[app.cursor_folder]].name, folder);
+    assert_eq!(
+        app.folders[app.view_folders[app.cursor_folder]].name,
+        folder
+    );
     assert_eq!(app.offsets, [3, 1, 0]);
     assert_eq!(app.recenter, [false; 3]);
 }
 fn app_with(tag: &str, mut videos: Vec<Video>) -> App {
     videos.sort_by_cached_key(|t| t.sort_key());
-    let mut app = App::build(temp_config(tag), FxParams::default(), None, None, renderer());
+    let mut app = App::build(
+        temp_config(tag),
+        FxParams::default(),
+        None,
+        None,
+        renderer(),
+    );
     app.set_videos(videos);
     app
 }
@@ -198,7 +209,10 @@ fn library_groups_into_folders_and_collections() {
         .iter()
         .map(|f| f.name.as_str())
         .collect();
-    assert_eq!(folders, ["TV/Show A/Season 1", "TV/Show A/Season 2", "TV/Show B"]);
+    assert_eq!(
+        folders,
+        ["TV/Show A/Season 1", "TV/Show A/Season 2", "TV/Show B"]
+    );
     assert_eq!(app.folders[0].name, "Films");
     invariants(&app);
 }
@@ -249,17 +263,29 @@ fn sort_keys_order_as_described() {
     app.sort_row = 1;
     app.apply_sort();
     assert_eq!(app.sort, SortKey::Title);
-    let titles: Vec<&str> = app.view_videos.iter().map(|&i| app.videos[i].title.as_str()).collect();
+    let titles: Vec<&str> = app
+        .view_videos
+        .iter()
+        .map(|&i| app.videos[i].title.as_str())
+        .collect();
     let mut sorted = titles.clone();
     sorted.sort_by_key(|t| t.to_lowercase());
     assert_eq!(titles, sorted);
     app.sort_row = 2;
     app.apply_sort();
-    let mtimes: Vec<u64> = app.view_videos.iter().map(|&i| app.videos[i].mtime).collect();
+    let mtimes: Vec<u64> = app
+        .view_videos
+        .iter()
+        .map(|&i| app.videos[i].mtime)
+        .collect();
     assert!(mtimes.windows(2).all(|w| w[0] >= w[1]), "{mtimes:?}");
     app.sort_row = 3;
     app.apply_sort();
-    let lens: Vec<f64> = app.view_videos.iter().map(|&i| app.videos[i].duration_secs).collect();
+    let lens: Vec<f64> = app
+        .view_videos
+        .iter()
+        .map(|&i| app.videos[i].duration_secs)
+        .collect();
     assert!(lens.windows(2).all(|w| w[0] >= w[1]), "{lens:?}");
     app.sort_row = 0;
     app.apply_sort();
@@ -367,11 +393,7 @@ fn shuffle_and_expand_are_remembered_across_restarts() {
 #[test]
 fn settings_file_without_extras_still_loads_fx() {
     let config = temp_config("legacy");
-    std::fs::write(
-        settings_file(&config),
-        r#"{"preamp": 3, "loudness": true}"#,
-    )
-    .unwrap();
+    std::fs::write(settings_file(&config), r#"{"preamp": 3, "loudness": true}"#).unwrap();
     let s = load_settings(&config);
     assert_eq!(s.fx.preamp, 3);
     assert!(s.fx.loudness);
@@ -399,7 +421,10 @@ fn last_video_is_remembered_and_restored_paused() {
     let mut lib = library();
     lib.sort_by_cached_key(|t| t.sort_key());
     app2.set_videos(lib);
-    assert_eq!(app2.playing.map(|i| app2.videos[i].path.clone()), Some(path.clone()));
+    assert_eq!(
+        app2.playing.map(|i| app2.videos[i].path.clone()),
+        Some(path.clone())
+    );
     assert!(app2.start_paused);
     assert_eq!(app2.pending_play, Some(5));
     assert_eq!(app2.view_videos[app2.cursor_video], 5);
@@ -418,7 +443,13 @@ fn speed_is_remembered_and_clamped_on_restore() {
     assert_eq!(load_settings(&app.config).speed_pct, 7);
     std::fs::write(settings_file(&app.config), r#"{"speed_pct": 400}"#).unwrap();
     let s = load_settings(&app.config);
-    let mut app2 = App::build(temp_config("speed"), FxParams::default(), None, None, renderer());
+    let mut app2 = App::build(
+        temp_config("speed"),
+        FxParams::default(),
+        None,
+        None,
+        renderer(),
+    );
     app2.set_speed_pct(s.speed_pct);
     assert_eq!(app2.speed_pct, 100);
 }
@@ -489,7 +520,11 @@ fn unplayable_entries_are_refused_with_a_message() {
     app.play_index(idx);
     app.flush_play();
     assert_eq!(app.playing, None);
-    assert!(app.status.contains("no audio or video stream"), "{}", app.status);
+    assert!(
+        app.status.contains("no audio or video stream"),
+        "{}",
+        app.status
+    );
 }
 #[test]
 fn renderer_cycles_through_every_option_and_is_remembered() {
@@ -520,8 +555,14 @@ fn renderer_cycles_through_every_option_and_is_remembered() {
     for _ in 0..10 {
         app.cycle_renderer();
     }
-    assert_eq!((app.renderer.protocol, app.renderer.truecolor), (Protocol::Ascii, true));
-    assert_eq!(load_settings(&app.config).renderer.as_deref(), Some("ascii"));
+    assert_eq!(
+        (app.renderer.protocol, app.renderer.truecolor),
+        (Protocol::Ascii, true)
+    );
+    assert_eq!(
+        load_settings(&app.config).renderer.as_deref(),
+        Some("ascii")
+    );
     app.cycle_renderer();
     app.cycle_renderer();
     assert_eq!(app.renderer, renderer(), "back to the detected one");
@@ -529,7 +570,13 @@ fn renderer_cycles_through_every_option_and_is_remembered() {
     // A remembered choice is applied on the next start.
     app.choose_renderer("blocks256");
     app.save_settings();
-    let mut again = App::build(temp_config("renderer"), FxParams::default(), None, None, renderer());
+    let mut again = App::build(
+        temp_config("renderer"),
+        FxParams::default(),
+        None,
+        None,
+        renderer(),
+    );
     if let Some(name) = load_settings(&again.config).renderer.as_deref() {
         again.choose_renderer(name);
     }

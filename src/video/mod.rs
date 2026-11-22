@@ -12,9 +12,9 @@ mod video_feed;
 pub use frame::Frame;
 pub use gain::measure_gain;
 pub use playback::{Media, Playback};
-pub use target::{Kind, Target};
 #[cfg(test)]
 use target::fit;
+pub use target::{Kind, Target};
 pub use term::{Protocol, Renderer};
 /// Audio is decoded to this rate and channel count whatever the file holds,
 /// so the chain after ffmpeg never has to care.

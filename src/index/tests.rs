@@ -30,7 +30,7 @@ fn walk_finds_videos_recursively_and_skips_hidden_entries() {
         fs::write(root.join(f), b"").unwrap();
     }
     let (mut files, mut unreadable) = (Vec::new(), Vec::new());
-    walk(&root, &mut files, &mut unreadable);
+    walk(std::slice::from_ref(&root), &mut files, &mut unreadable);
     assert_eq!(names(&files), ["one.mp4", "three.webm", "two.MKV"]);
     assert!(unreadable.is_empty(), "{unreadable:?}");
 }
@@ -45,7 +45,7 @@ fn walk_follows_symlinks_once_and_survives_loops() {
     symlink(&root, root.join("real/loop")).unwrap();
     symlink(root.join("missing"), root.join("dangling")).unwrap();
     let (mut files, mut unreadable) = (Vec::new(), Vec::new());
-    walk(&root, &mut files, &mut unreadable);
+    walk(std::slice::from_ref(&root), &mut files, &mut unreadable);
     assert_eq!(files.len(), 1, "{files:?}");
     assert_eq!(names(&files), ["clip.mp4"]);
     assert_eq!(unreadable.len(), 1, "{unreadable:?}");
@@ -110,4 +110,16 @@ fn index_round_trips_through_json_with_missing_fields() {
     .unwrap();
     assert_eq!(idx.videos[0].width, 0);
     assert_eq!(idx.videos[0].acodec, None);
+}
+#[test]
+fn walk_covers_several_roots_and_reads_overlaps_once() {
+    let a = temp("multi-a");
+    let b = temp("multi-b");
+    fs::create_dir_all(a.join("sub")).unwrap();
+    fs::write(a.join("sub/one.mp4"), b"").unwrap();
+    fs::write(b.join("two.mkv"), b"").unwrap();
+    let (mut files, mut unreadable) = (Vec::new(), Vec::new());
+    walk(&[a.clone(), b, a.join("sub")], &mut files, &mut unreadable);
+    assert_eq!(names(&files), ["one.mp4", "two.mkv"]);
+    assert!(unreadable.is_empty(), "{unreadable:?}");
 }

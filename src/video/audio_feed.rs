@@ -47,7 +47,8 @@ impl Shared {
     }
     pub(super) fn ready(&self) -> bool {
         self.eof.load(Ordering::SeqCst)
-            || self.queued() >= (PREBUFFER_SECS * AUDIO_RATE as f64) as usize * AUDIO_CHANNELS as usize
+            || self.queued()
+                >= (PREBUFFER_SECS * AUDIO_RATE as f64) as usize * AUDIO_CHANNELS as usize
     }
 }
 /// Decodes a file's audio through ffmpeg into a queue a [`PcmSource`] plays.
@@ -58,7 +59,14 @@ pub struct AudioFeed {
 impl AudioFeed {
     pub fn start(ffmpeg: &Path, path: &Path, start_secs: f64) -> Result<Self> {
         let mut child = Command::new(ffmpeg)
-            .args(["-nostdin", "-v", "error", "-ss", &secs_arg(start_secs), "-i"])
+            .args([
+                "-nostdin",
+                "-v",
+                "error",
+                "-ss",
+                &secs_arg(start_secs),
+                "-i",
+            ])
             .arg(path)
             .args(["-vn", "-sn", "-dn", "-f", "f32le", "-ac"])
             .arg(AUDIO_CHANNELS.to_string())

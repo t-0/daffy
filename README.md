@@ -16,7 +16,7 @@ On first run `~/.daffy` is created with:
 
     video.home = ~/Movies
 
-Set `video.home` to the folder holding your videos; every video file at or under it is indexed. The index is cached in `~/.daffy-index.json` (override with `index.file = ...`) and refreshed on each start, probing only files whose size or modification time changed. `DAFFY_CONFIG=/path/to/file` points at a different config file. `DAFFY_AUDIO_BUFFER=4096` asks the output device for a fixed period of that many frames instead of leaving the choice to the audio backend. `DAFFY_KEYLOG=1` writes every key event to `~/.daffy.log`, which is the thing to look at if daffy seems to press keys by itself: terminal replies that arrive as keystrokes are filtered out, and the log shows what came in.
+Set `video.home` to the folder holding your videos; every video file at or under it is indexed. To index several folders, list them in brackets: `video.home = [~/Movies, "/Volumes/Media/Videos"]` (quote a path that contains a comma). Folders and collections are worked out relative to whichever listed folder a file is in, so same-named top-level folders in different roots share a collection. The index is cached in `~/.daffy-index.json` (override with `index.file = ...`) and refreshed on each start, probing only files whose size or modification time changed. `DAFFY_CONFIG=/path/to/file` points at a different config file. `DAFFY_AUDIO_BUFFER=4096` asks the output device for a fixed period of that many frames instead of leaving the choice to the audio backend. `DAFFY_KEYLOG=1` writes every key event to `~/.daffy.log`, which is the thing to look at if daffy seems to press keys by itself: terminal replies that arrive as keystrokes are filtered out, and the log shows what came in.
 
 Supported containers: mp4, m4v, mov, mkv, webm, avi, mpg/mpeg, ts, m2ts, mts, wmv, flv, 3gp, ogv, vob, divx — anything ffmpeg can decode. A file without a picture (an audio-only mp4, say) plays as audio only.
 
@@ -55,7 +55,7 @@ Frames are decoded at the size they will be shown, encoded on a separate thread,
 
 | Key | Action |
 | --- | --- |
-| `v` / `d` / `c` | Show the video / folder / collection list. A folder is the directory a file is in (relative to `video.home`); a collection is the top-level directory under `video.home` |
+| `v` / `d` / `c` | Show the video / folder / collection list. A folder is the directory a file is in (relative to its `video.home` folder); a collection is the top-level directory under a `video.home` folder |
 | `/` | Search: type text matched against title, folder, collection and file name, then `Enter`. An empty search shows everything again; `Esc` cancels |
 | `o` | Sort the video list by folder (collection, folder, file name), title, newest, or length (`f`/`t`/`n`/`l` are shortcuts inside the popup). Next/previous follow the chosen order |
 | `↑` / `↓` (or `k` / `j`) | Move the selection; `PgUp` / `PgDn` move a page, `Home` / `End` jump to the top / bottom |
@@ -116,3 +116,9 @@ They push 200k random operations through the app state against a 3k-video librar
 - sixel size reporting on MacOS
 - added quad, sextant, and mosaic rendering
 - fixed speed controls
+
+### v1.0.2
+
+- allow multiple root folders
+- formatting
+- dependency updates

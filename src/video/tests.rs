@@ -47,10 +47,7 @@ fn block_target_decodes_one_pixel_per_half_cell() {
         ..t
     };
     assert_eq!(t.frame_size(1920, 1080), (71, 40));
-    let t = Target {
-        cell: (8, 20),
-        ..t
-    };
+    let t = Target { cell: (8, 20), ..t };
     // A half block is 8×10 px here, so a square picture needs more columns
     // than half-rows: 400×400 px is 50 columns by 40 half-rows.
     assert_eq!(t.frame_size(1000, 1000), (50, 40));
@@ -153,7 +150,10 @@ fn clock_runs_pauses_and_scales() {
     assert_eq!(c.now(), p, "setting speed while paused keeps it paused");
     c.resume();
     std::thread::sleep(std::time::Duration::from_millis(30));
-    assert!(c.now() > p + 0.05, "2x speed should gain at least 50 ms in 30 ms");
+    assert!(
+        c.now() > p + 0.05,
+        "2x speed should gain at least 50 ms in 30 ms"
+    );
 }
 #[test]
 fn pcm_source_plays_silence_on_underrun_and_ends_on_eof() {
@@ -202,7 +202,10 @@ fn pcm_source_follows_a_speed_change_mid_stream() {
     out.by_ref().take(secs(1.0)).for_each(drop);
     let used = (before - shared.queued()) as f64 / secs(1.0) as f64;
     // Up to a span plus a chunk late in picking the change up.
-    assert!((1.8..=2.1).contains(&used), "a second at 2x used {used:.2} s of audio");
+    assert!(
+        (1.8..=2.1).contains(&used),
+        "a second at 2x used {used:.2} s of audio"
+    );
 }
 #[test]
 fn base64_matches_the_standard() {
@@ -283,7 +286,11 @@ fn kitty_frames_are_chunked_and_place_over_the_cells() {
     for c in &chunks[..chunks.len() - 2] {
         let payload = c.rsplit(';').next().unwrap();
         assert!(payload.len() <= 4096, "{}", payload.len());
-        assert!(payload.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'+' || b == b'/' || b == b'='));
+        assert!(
+            payload
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'+' || b == b'/' || b == b'=')
+        );
     }
     assert!(s.contains("\x1b_Gm=0;"), "last chunk ends the transmission");
     assert!(s.ends_with("\x1b_Ga=d,d=I,i=2,q=2\x1b\\"));
@@ -366,7 +373,15 @@ fn decode_sixel(s: &str, w: usize, h: usize) -> Vec<Option<usize>> {
     }
     img
 }
-fn paint(img: &mut [Option<usize>], w: usize, h: usize, x: usize, band: usize, color: usize, ch: char) {
+fn paint(
+    img: &mut [Option<usize>],
+    w: usize,
+    h: usize,
+    x: usize,
+    band: usize,
+    color: usize,
+    ch: char,
+) {
     let bits = ch as u8 - 63;
     for row in 0..6 {
         if bits & (1 << row) != 0 {
@@ -434,18 +449,30 @@ fn renderer_detection_follows_the_terminal() {
         ..none
     };
     let pick = |f: Option<&str>, e: &Env, c: &Caps| term::detect(f, e, c).0;
-    assert_eq!(pick(None, &env("Apple_Terminal"), &none).protocol, Protocol::Blocks);
+    assert_eq!(
+        pick(None, &env("Apple_Terminal"), &none).protocol,
+        Protocol::Blocks
+    );
     assert!(!pick(None, &env("Apple_Terminal"), &none).truecolor);
-    assert_eq!(pick(None, &env("iTerm.app"), &cell).protocol, Protocol::Iterm2);
+    assert_eq!(
+        pick(None, &env("iTerm.app"), &cell).protocol,
+        Protocol::Iterm2
+    );
     assert_eq!(pick(None, &env("vscode"), &none).protocol, Protocol::Iterm2);
     assert!(pick(None, &env("vscode"), &none).truecolor);
     assert_eq!(pick(None, &env("ghostty"), &none).protocol, Protocol::Kitty);
-    assert_eq!(pick(None, &env("WezTerm"), &none).protocol, Protocol::Iterm2);
+    assert_eq!(
+        pick(None, &env("WezTerm"), &none).protocol,
+        Protocol::Iterm2
+    );
     let kitty = Caps {
         kitty: true,
         ..cell
     };
-    assert_eq!(pick(None, &env("WezTerm"), &kitty).protocol, Protocol::Kitty);
+    assert_eq!(
+        pick(None, &env("WezTerm"), &kitty).protocol,
+        Protocol::Kitty
+    );
     assert_eq!(pick(None, &env(""), &kitty).protocol, Protocol::Kitty);
     let sixel = Caps {
         sixel: true,
@@ -456,40 +483,54 @@ fn renderer_detection_follows_the_terminal() {
         sixel: true,
         ..none
     };
-    assert_eq!(pick(None, &env(""), &sixel_no_cell).protocol, Protocol::Blocks);
+    assert_eq!(
+        pick(None, &env(""), &sixel_no_cell).protocol,
+        Protocol::Blocks
+    );
     let tmux = Env {
         tmux: true,
         ..env("iTerm.app")
     };
     assert_eq!(pick(None, &tmux, &kitty).protocol, Protocol::Blocks);
-    assert_eq!(pick(Some("blocks256"), &env("ghostty"), &kitty).protocol, Protocol::Blocks);
+    assert_eq!(
+        pick(Some("blocks256"), &env("ghostty"), &kitty).protocol,
+        Protocol::Blocks
+    );
     assert!(!pick(Some("blocks256"), &env("ghostty"), &kitty).truecolor);
     let a = pick(Some("ascii256"), &env("ghostty"), &kitty);
     assert_eq!((a.protocol, a.truecolor), (Protocol::Ascii, false));
     assert_eq!(a.setting_name(), "ascii256");
     assert_eq!(a.label(), "ascii 256");
     assert_eq!(a.with(Protocol::Kitty, true).setting_name(), "kitty");
-    assert_eq!(pick(Some("sixel"), &env(""), &cell).protocol, Protocol::Sixel);
+    assert_eq!(
+        pick(Some("sixel"), &env(""), &cell).protocol,
+        Protocol::Sixel
+    );
     let (r, warn) = term::detect(Some("sixel"), &env(""), &none);
     assert_eq!(r.protocol, Protocol::Blocks);
     assert!(warn.is_some());
     let r = pick(None, &env("vscode"), &cell);
     assert_eq!(r.label(), "iterm2 9×18px");
-    assert_eq!(pick(None, &env("Apple_Terminal"), &none).label(), "blocks 256");
+    assert_eq!(
+        pick(None, &env("Apple_Terminal"), &none).label(),
+        "blocks 256"
+    );
 }
 #[test]
 fn terminal_replies_are_parsed() {
     let (caps, done) = term::parse_replies(b"\x1b[6;20;10t\x1b_Gi=31;OK\x1b\\\x1b[?62;4;22c");
     assert!(done);
-    assert_eq!(caps, Caps {
-        kitty: true,
-        sixel: true,
-        cell: Some((10, 20)),
-    });
-    // iTerm2 reports CSI 16 t in points; its own report carries the scale.
-    let (caps, _) = term::parse_replies(
-        b"\x1b[6;17;7t\x1b]1337;ReportCellSize=17.0;7.0;2.0\x1b\\\x1b[?62;4c",
+    assert_eq!(
+        caps,
+        Caps {
+            kitty: true,
+            sixel: true,
+            cell: Some((10, 20)),
+        }
     );
+    // iTerm2 reports CSI 16 t in points; its own report carries the scale.
+    let (caps, _) =
+        term::parse_replies(b"\x1b[6;17;7t\x1b]1337;ReportCellSize=17.0;7.0;2.0\x1b\\\x1b[?62;4c");
     assert_eq!(caps.cell, Some((14, 34)));
     let (caps, _) = term::parse_replies(b"\x1b]1337;ReportCellSize=16;8\x07\x1b[?62c");
     assert_eq!(caps.cell, Some((8, 16)));
